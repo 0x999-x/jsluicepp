@@ -671,7 +671,7 @@ class BurpExtender(IBurpExtender, IHttpListener, ITab, IExtensionStateListener, 
             self.add_horizontal_strut(checkboxesPanel, 10)
         self.panel.add(checkboxesPanel, None)
 
-        self.layout.putConstraint(swing.SpringLayout.HORIZONTAL_CENTER, checkboxesPanel, 84, swing.SpringLayout.HORIZONTAL_CENTER, self.panel)
+        self.layout.putConstraint(swing.SpringLayout.WEST, checkboxesPanel, 114, swing.SpringLayout.WEST, self.add_filter_button)
         self.layout.putConstraint(swing.SpringLayout.NORTH, checkboxesPanel, 604, swing.SpringLayout.NORTH, self.panel)
 
         self.monitor_interval_selector = swing.JComboBox(["Off", "Once", "Hourly", "Daily", "Weekly", "Monthly"])
@@ -698,7 +698,7 @@ class BurpExtender(IBurpExtender, IHttpListener, ITab, IExtensionStateListener, 
         self.save_settings_button.setFont(awt.Font("Cantarell", awt.Font.BOLD, 12))
         self.save_settings_button.setPreferredSize(awt.Dimension(94, 34))
         self.panel.add(self.save_settings_button, None)
-        self.layout.putConstraint(swing.SpringLayout.HORIZONTAL_CENTER, self.save_settings_button, 534, swing.SpringLayout.HORIZONTAL_CENTER, self.panel)
+        self.layout.putConstraint(swing.SpringLayout.EAST, self.save_settings_button, 124, swing.SpringLayout.EAST, checkboxesPanel)
         self.layout.putConstraint(swing.SpringLayout.NORTH, self.save_settings_button, 606, swing.SpringLayout.NORTH, self.panel)
 
         self.settings_saved_label = swing.JLabel("Settings saved")
