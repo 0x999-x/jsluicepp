@@ -427,6 +427,7 @@ class BurpExtender(IBurpExtender, IHttpListener, ITab, IExtensionStateListener, 
         self.hosts_list = set()
         self.hosts_with_secrets = set()
         self.selected_host = ""
+        self.path_to_binary = "jsluice"
         self.directory = ".jsluicepp"
         self.monitored_urls_path = "/monitored_urls.txt"
         self.monitored_urls_directory = "/monitored_files/"
@@ -689,7 +690,8 @@ class BurpExtender(IBurpExtender, IHttpListener, ITab, IExtensionStateListener, 
         "On/Off": "on_off_button",
         "Auto-Select": "autoselectall_button",
         "Monitor Interval": "monitor_interval_selector",
-        "Show Parameterized": "show_parameterized"
+        "Show Parameterized": "show_parameterized",
+        "Path to jsluice": "path_to_binary"
         }
         
         self.save_settings_button = swing.JButton("Save Settings", actionPerformed=self.save_settings)
@@ -803,8 +805,33 @@ class BurpExtender(IBurpExtender, IHttpListener, ITab, IExtensionStateListener, 
         callbacks.registerContextMenuFactory(self)
         self.load_settings()
         print("Extension loaded")
-        if not distutils.spawn.find_executable("jsluice"):
-            print("[WARNING] jsluice binary not found, please install it and ensure it is in your $PATH otherwise the extension will not work.")
+
+        self.binary_path_label = swing.JLabel("jsluice binary not found in $PATH, Please select it.")
+        self.binary_path = swing.JTextField(self.path_to_binary, 20)
+        self.binary_path.setToolTipText("Path to the jsluice binary")
+        self.select_binary_button = swing.JButton("Select file", actionPerformed=self.handle_binary_not_found)
+        self.select_binary_button.setToolTipText("Select the jsluice binary")
+        self.not_found_panel = swing.JPanel()
+        self.not_found_panel.setLayout(swing.BoxLayout(self.not_found_panel, swing.BoxLayout.X_AXIS))
+        self.binary_path.setPreferredSize(self.binary_path.getPreferredSize())
+        self.binary_path.setMaximumSize(awt.Dimension(114, 24))
+        self.binary_path.setEditable(False)
+        self.binary_path.setEnabled(False)
+        self.not_found_panel.add(self.binary_path)
+        self.not_found_panel.add(self.select_binary_button)
+        self.layout.putConstraint(swing.SpringLayout.WEST, self.not_found_panel, 304, swing.SpringLayout.WEST, self.tabbed_pane_files)
+        self.layout.putConstraint(swing.SpringLayout.NORTH, self.not_found_panel, 252, swing.SpringLayout.NORTH, self.panel)
+        if not distutils.spawn.find_executable(self.path_to_binary):
+            print("[WARNING] jsluice binary not found in $PATH: \"" + os.environ['PATH'] + "\", Please select it using the file selector in the jsluice++ extension tab otherwise the extension will not work")
+            self.binary_path_label.setFont(awt.Font("Cantarell", awt.Font.BOLD, 12))
+            self.binary_path_label.setBorder(self.red_border)
+            self.layout.putConstraint(swing.SpringLayout.HORIZONTAL_CENTER, self.binary_path_label, 0, swing.SpringLayout.HORIZONTAL_CENTER, self.not_found_panel)
+            self.layout.putConstraint(swing.SpringLayout.NORTH, self.binary_path_label, -24, swing.SpringLayout.NORTH, self.not_found_panel)
+            self.panel.add(self.binary_path_label)
+            self.panel.add(self.not_found_panel, None)
+        elif self.path_to_binary != "jsluice":
+            self.panel.add(self.not_found_panel, None)
+            
         self.threads = []
         if os.path.exists(self.directory + self.monitored_urls_path):
             self.monitored_urls = self.get_monitored_urls()
@@ -812,7 +839,18 @@ class BurpExtender(IBurpExtender, IHttpListener, ITab, IExtensionStateListener, 
                 if self.monitor_interval_selector.getSelectedItem() != "Off":
                     self.schedule_event(0, self.schedule_monitor)
 
-
+    def handle_binary_not_found(self, event):
+        file_chooser = swing.JFileChooser()
+        file_chooser.setDialogTitle("Select jsluice binary")
+        file_chooser.setFileSelectionMode(swing.JFileChooser.FILES_ONLY)
+        file_chooser.setFileHidingEnabled(False)
+        if file_chooser.showOpenDialog(self.panel) == swing.JFileChooser.APPROVE_OPTION:
+            file = file_chooser.getSelectedFile()
+            self.path_to_binary = file.getAbsolutePath()
+            self.save_settings(None)
+            self.binary_path.setText(self.path_to_binary)
+            self.panel.remove(self.binary_path_label)
+            
     def export_import(self, option, type):
         file_chooser = swing.JFileChooser()
         file_chooser.setFileFilter(FileNameExtensionFilter("JSON", ["json"]))
@@ -877,6 +915,8 @@ class BurpExtender(IBurpExtender, IHttpListener, ITab, IExtensionStateListener, 
                 settings[display_name] = component.isSelected()
             elif isinstance(component, swing.JComboBox):
                 settings[display_name] = component.getSelectedItem()
+            elif display_name == "Path to jsluice":
+                settings[display_name] = component
 
         with open(file.getAbsolutePath(), "w") as f:
             f.write(json.dumps(settings, indent=4))
@@ -905,6 +945,9 @@ class BurpExtender(IBurpExtender, IHttpListener, ITab, IExtensionStateListener, 
                                     self._callbacks.registerHttpListener(self)
                     elif key == "Monitor Interval":
                         component.setSelectedItem(value)
+                    elif key == "Path to jsluice":
+                        self.path_to_binary = value
+                        self.binary_path.setText(self.path_to_binary)
                     else:
                         component.setSelected(value == True)
                         if key == "Secrets":
@@ -966,6 +1009,8 @@ class BurpExtender(IBurpExtender, IHttpListener, ITab, IExtensionStateListener, 
                         continue
                 if (value != "Off" and value != "Once") and len(self.monitored_urls) > 0:
                     self.schedule_monitor()
+            elif setting == "Path to jsluice":
+                value = self.path_to_binary
             else:
                 value = str(checkbox.isSelected())
             self._callbacks.saveExtensionSetting(setting, value)
@@ -1000,6 +1045,8 @@ class BurpExtender(IBurpExtender, IHttpListener, ITab, IExtensionStateListener, 
                             self._callbacks.registerHttpListener(self)
             elif setting == "Monitor Interval":
                 checkbox.setSelectedItem(value)
+            elif setting == "Path to jsluice":
+                self.path_to_binary = value
             else:
                 checkbox.setSelected(value == "True")
                 if setting == "Secrets":
@@ -1328,7 +1375,7 @@ class BurpExtender(IBurpExtender, IHttpListener, ITab, IExtensionStateListener, 
             file_name_hash = md5(file_name.encode()).hexdigest()
             file_path = self.directory + "/" + host + "_" + file_name_hash
             monitor_file_path = self.directory + self.monitored_urls_directory + host + "_" + file_name_hash
-            urls_command = "jsluice urls " + file_path
+            urls_command = self.path_to_binary + " urls " + file_path
             with open(file_path, "w") as f:
                 f.write(response_body)
             process_urls = subprocess.Popen(urls_command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -1354,7 +1401,7 @@ class BurpExtender(IBurpExtender, IHttpListener, ITab, IExtensionStateListener, 
                     with open(monitor_file_path, "w") as f:
                         f.write(json.dumps(urls_stdout))
             if self.secrets_checkbox.isSelected():
-                secrets_command = "jsluice secrets " + file_path
+                secrets_command = self.path_to_binary + " secrets " + file_path
                 process_secrets = subprocess.Popen(secrets_command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
                 secrets_stdout, stderr2 = process_secrets.communicate()
 
@@ -1775,6 +1822,9 @@ class BurpExtender(IBurpExtender, IHttpListener, ITab, IExtensionStateListener, 
 
     def getUiComponent(self):
         return self.panel
+
+
+
 
 
 
