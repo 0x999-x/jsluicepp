@@ -621,6 +621,86 @@ class BurpExtender(IBurpExtender, IHttpListener, ITab, IExtensionStateListener, 
         self.panel.add(self.autoselectall_button, None)
         self.layout.putConstraint(swing.SpringLayout.HORIZONTAL_CENTER, self.autoselectall_button, 454, swing.SpringLayout.HORIZONTAL_CENTER, self.panel)
         self.layout.putConstraint(swing.SpringLayout.NORTH, self.autoselectall_button, 280, swing.SpringLayout.NORTH, self.panel)
+        self.copy_all_menu = swing.JPopupMenu()
+        def handle_copy(event):
+            parameters = ""
+            urls_paths = ""
+            source = event.getSource().getText()
+            if source == "URLs/Paths":
+                urls_paths = "\n".join(set("/" + self.result_table_model.getValueAt(i, 0) if not any(self.result_table_model.getValueAt(i, 0).startswith(prefix) for prefix in ["http://", "https://", "//", "/"]) else self.result_table_model.getValueAt(i, 0) for i in range(self.result_table_model.getRowCount())))
+            elif source == "Query Parameters":
+                parameters = '\n'.join([self.result_table_model.getValueAt(i, 1) for i in range(self.result_table_model.getRowCount())]).replace(", ", "\n").replace("\"", "")
+            elif source == "Body Parameters":
+                parameters = '\n'.join([self.result_table_model.getValueAt(i, 2) for i in range(self.result_table_model.getRowCount())]).replace(", ", "\n").replace("[", "").replace("]", "").replace("\"", "")
+            elif source == "All Parameters":
+                parameters = '\n'.join([self.result_table_model.getValueAt(i, 1) + "\n" + self.result_table_model.getValueAt(i, 2) for i in range(self.result_table_model.getRowCount())]).replace(", ", "\n").replace("[", "").replace("]", "").replace("\"", "")
+            parameters = "\n".join(list(set([line for line in parameters.split("\n") if line.strip()])))
+            if source == "All Parameters":
+                parameters = "&".join([line + "=JSLPP" + str(i) for i, line in enumerate(parameters.split("\n"), 1)])
+            clipboard = awt.Toolkit.getDefaultToolkit().getSystemClipboard()
+            clipboard.setContents(awt.datatransfer.StringSelection(parameters if source != "URLs/Paths" else urls_paths), None)
+            
+        urls_paths_menu_item = swing.JMenuItem("URLs/Paths", actionPerformed=handle_copy)
+        urls_paths_menu_item.setHorizontalTextPosition(swing.SwingConstants.LEFT)
+        urls_paths_menu_item.setFont(awt.Font("Cantarell", awt.Font.BOLD, 10))
+        urls_paths_menu_item.setBackground(awt.Color.GRAY)
+        urls_paths_menu_item.setPreferredSize(awt.Dimension(94, 24))
+        self.copy_all_menu.add(urls_paths_menu_item)
+
+        query_parameters_menu_item = swing.JMenuItem("Query Parameters", actionPerformed=handle_copy)
+        query_parameters_menu_item.setHorizontalTextPosition(swing.SwingConstants.LEFT)
+        query_parameters_menu_item.setFont(awt.Font("Cantarell", awt.Font.BOLD, 10))
+        query_parameters_menu_item.setBackground(awt.Color.GRAY)
+        query_parameters_menu_item.setPreferredSize(awt.Dimension(94, 24))
+        self.copy_all_menu.add(query_parameters_menu_item)
+
+        body_parameters_menu_item = swing.JMenuItem("Body Parameters", actionPerformed=handle_copy)
+        body_parameters_menu_item.setHorizontalTextPosition(swing.SwingConstants.LEFT)
+        body_parameters_menu_item.setFont(awt.Font("Cantarell", awt.Font.BOLD, 10))
+        body_parameters_menu_item.setBackground(awt.Color.GRAY)
+        body_parameters_menu_item.setPreferredSize(awt.Dimension(94, 24))
+        self.copy_all_menu.add(body_parameters_menu_item)
+
+        all_parameters_menu_item = swing.JMenuItem("All Parameters", actionPerformed=handle_copy)
+        all_parameters_menu_item.setHorizontalTextPosition(swing.SwingConstants.LEFT)
+        all_parameters_menu_item.setFont(awt.Font("Cantarell", awt.Font.BOLD, 10))
+        all_parameters_menu_item.setBackground(awt.Color.GRAY)
+        all_parameters_menu_item.setPreferredSize(awt.Dimension(94, 24))
+        self.copy_all_menu.add(all_parameters_menu_item)
+        
+        def show_copy_all_menu(event):
+            has_query_params = False
+            has_body_params = False
+            for i in range(self.result_table_model.getRowCount()):
+                if self.result_table_model.getValueAt(i, 1):
+                    has_query_params = True
+                elif self.result_table_model.getValueAt(i, 2):
+                    has_body_params = True
+            query_parameters_menu_item.setEnabled(has_query_params)
+            body_parameters_menu_item.setEnabled(has_body_params)
+            all_parameters_menu_item.setEnabled(has_query_params or has_body_params)
+            if self.result_table_model.getRowCount() == 0:
+                urls_paths_menu_item.setEnabled(False)
+                query_parameters_menu_item.setEnabled(False)
+                body_parameters_menu_item.setEnabled(False)
+                all_parameters_menu_item.setEnabled(False)
+            else:
+                urls_paths_menu_item.setEnabled(True)
+            self.copy_all_menu.show(self.copy_all_button, 0, 24)
+
+
+        self.copy_all_button = swing.JButton("Copy All", actionPerformed=show_copy_all_menu)
+        self.copy_all_button.setIcon(swing.UIManager.getIcon("Table.descendingSortIcon"))
+        self.copy_all_button.setHorizontalTextPosition(swing.SwingConstants.LEFT)
+        self.copy_all_button.setToolTipText("Choose options...")
+        self.copy_all_button.setFont(awt.Font("Cantarell", awt.Font.BOLD, 13))
+        self.copy_all_button.setPreferredSize(awt.Dimension(94, 24))
+        self.copy_all_button.setBorder(swing.BorderFactory.createLineBorder(None, 1))
+        self.panel.add(self.copy_all_button, None)
+
+        self.layout.putConstraint(swing.SpringLayout.HORIZONTAL_CENTER, self.copy_all_button, 652, swing.SpringLayout.HORIZONTAL_CENTER, self.panel)
+        self.layout.putConstraint(swing.SpringLayout.NORTH, self.copy_all_button, 564, swing.SpringLayout.NORTH, self.panel)
+
 
         checkboxesPanel = swing.JPanel()
         checkboxesPanel.setLayout(swing.BoxLayout(checkboxesPanel, swing.BoxLayout.X_AXIS))
